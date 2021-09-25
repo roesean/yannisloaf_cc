@@ -1,1 +1,1 @@
-mod chat;
+pub mod chat;
