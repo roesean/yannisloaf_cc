@@ -39,7 +39,7 @@ const userActions = {
 		"action_swap": {
 			"map_from": ["w", "a" , "d", "s"],
 			"map_to": ["s", "d" , "a", "w"],
-			"randomize": "true?false"
+			"randomize": "false"
 		}
 	}
 }
