@@ -29,7 +29,6 @@ impl IRCClient {
       let mut gift_bombs = ExpiringMap::new(Duration::from_secs(5));
 
       while let Some(message) = incoming_messages.recv().await {
-        println!("{:?}", message);
         match message {
           ServerMessage::Privmsg(priv_msg) => {
             match priv_msg.bits {
