@@ -26,7 +26,7 @@ impl IRCClient {
 
     tokio::spawn(async move {
 
-      let mut gift_bombs = ExpiringMap::new(Duration::from_secs(5));
+      let mut gift_bombs = ExpiringMap::new(Duration::from_secs(30));
 
       while let Some(message) = incoming_messages.recv().await {
         match message {
@@ -45,13 +45,22 @@ impl IRCClient {
                 gift_bombs.insert(notice.sender.id, mass_gift_count);
                 subs_closure(u8::try_from(mass_gift_count).unwrap_or(0));
               },
-              UserNoticeEvent::SubGift {..} => {
+              UserNoticeEvent::AnonSubMysteryGift {mass_gift_count, ..}=> {
+                //Multiple gifted subs
+                gift_bombs.insert("274598607".to_string(), mass_gift_count);
+                subs_closure(u8::try_from(mass_gift_count).unwrap_or(0));
+              },
+              UserNoticeEvent::SubGift {is_sender_anonymous, ..} => {
+                let sender_id = match is_sender_anonymous {
+                  true => "274598607".to_string(),
+                  false => notice.sender.id
+                };
                 //Single gifted sub, can be part of a sub-bomb
-                if *gift_bombs.get(&notice.sender.id).unwrap_or(&0) > 0 {
+                if *gift_bombs.get(&sender_id).unwrap_or(&0) > 0 {
                   //Part of the sub bomb
-                  let gift_bomb_left = gift_bombs.get(&notice.sender.id).unwrap_or(&0);
+                  let gift_bomb_left = gift_bombs.get(&sender_id).unwrap_or(&0);
                   let gift_bomb_left = gift_bomb_left - 1;
-                  gift_bombs.insert(notice.sender.id, gift_bomb_left);
+                  gift_bombs.insert(sender_id, gift_bomb_left);
                 } else {
                   //Single gift
                   subs_closure(1);
