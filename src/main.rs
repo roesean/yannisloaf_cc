@@ -1,7 +1,7 @@
 mod twitch;
 
 use actix_web::{App, HttpServer, middleware, Responder, HttpResponse, get};
-use crate::twitch::chat::{IrcClientActor, IrcConnect, IrcAddListener};
+use crate::twitch::chat::{IrcClientActor, IrcConnect};
 use actix::{Actor, Addr};
 
 pub struct AppState {
@@ -21,7 +21,6 @@ async fn main() -> std::io::Result<()> {
   let state = AppState {
     irc_client: IrcClientActor::default().start()
   };
-
 
   let state = actix_web::web::Data::new(state);
 
