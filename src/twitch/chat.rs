@@ -1,6 +1,7 @@
 use actix::prelude::*;
 use std::sync::{Arc, RwLock};
 use websocket::{ClientBuilder, OwnedMessage};
+use crate::twitch::irc_parse::IrcCommand;
 
 const TWITCH_IRC_URL: &'static str = "ws://irc-ws.chat.twitch.tv:80";
 
@@ -74,11 +75,11 @@ impl Handler<IrcConnect> for IrcClientActor {
 
     if msg.1.is_some() {
       self.is_logged_in = true;
-      if sender.send_message(&to_msg(&format!("PASS {}", msg.1.unwrap()))).is_err() {
+      if sender.send_message(&IrcCommand::Pass(msg.1.unwrap()).to_message()).is_err() {
         return MessageResult(IrcConnectResult::ConnectionFailed);
       }
     }
-    if sender.send_message(&to_msg(&format!("NICK {}", msg.0))).is_err() {
+    if sender.send_message(&IrcCommand::Nick(msg.0).to_message()).is_err() {
       return MessageResult(IrcConnectResult::ConnectionFailed);
     }
 
