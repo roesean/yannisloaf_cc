@@ -1,13 +1,10 @@
 use actix::prelude::*;
-use twitch_irc::{ClientConfig, TwitchIRCClient, SecureTCPTransport};
-use twitch_irc::login::StaticLoginCredentials;
-use expiring_map::ExpiringMap;
-use std::time::Duration;
-use twitch_irc::message::{ServerMessage, UserNoticeEvent};
 use std::sync::{Arc, RwLock};
+use websocket::{ClientBuilder, OwnedMessage};
+
+const TWITCH_IRC_URL: &'static str = "ws://irc-ws.chat.twitch.tv:80";
 
 pub struct IrcClientActor {
-  client: Option<TwitchIRCClient<SecureTCPTransport, StaticLoginCredentials>>,
   is_logged_in: bool,
   cc_subscribers: Arc<RwLock<Vec<Recipient<IrcCcEvent>>>>
 }
@@ -22,7 +19,6 @@ pub struct IrcCcEvent {
 impl Default for IrcClientActor {
   fn default() -> Self {
     IrcClientActor {
-      client: None,
       is_logged_in: false,
       cc_subscribers: Arc::new(RwLock::new(Vec::<Recipient<IrcCcEvent>>::new()))
     }
@@ -46,77 +42,76 @@ fn broadcast_event<A>(recipients: &Arc<RwLock<Vec<Recipient<A>>>>, event: A)
   IRC Connect
 */
 #[derive(Message, Debug)]
-#[rtype(result = "()")]
+#[rtype(result = "IrcConnectResult")]
 pub struct IrcConnect(pub String, pub Option<String>);
+
+#[derive(Debug)]
+pub enum IrcConnectResult {
+  Success,
+  AuthFailed,
+  ConnectionFailed
+}
 
 
 impl Handler<IrcConnect> for IrcClientActor {
-  type Result = ();
+  type Result = MessageResult<IrcConnect>;
 
   fn handle(&mut self, msg: IrcConnect, _ctx: &mut Self::Context) -> Self::Result {
 
     println!("{:?}", &msg);
-    let config = ClientConfig::new_simple(StaticLoginCredentials::new(msg.0, msg.1));
-    let (mut msg_rcvr, client) = TwitchIRCClient::new(config);
 
-    //TODO: send connection state through second event
+    let client = ClientBuilder::new(TWITCH_IRC_URL)
+        .unwrap()
+        .connect_insecure();
+    //Secure websockets cannot be split easily, may be possible with a custom tokio implementation
 
-    self.client = Some(client);
+    if client.is_err() {
+      return MessageResult(IrcConnectResult::ConnectionFailed);
+    }
+    let client = client.unwrap();
 
-    let cc_subs = self.cc_subscribers.clone();
+    let (mut receiver, mut sender) = client.split().unwrap();
 
-    tokio::spawn(async move {
-      let mut gift_bombs = ExpiringMap::<String, u64>::new(Duration::from_secs(30));
-
-      //Move cc_subs in here
-      let cc_subs = cc_subs;
-
-      while let Some(msg) = msg_rcvr.recv().await {
-
-        match msg {
-          ServerMessage::Privmsg(priv_msg) => {
-            if let Some(bits) = priv_msg.bits {
-              broadcast_event(&cc_subs, IrcCcEvent{subs: 0, bits});
-            }
-          },
-          ServerMessage::UserNotice(notice) => {
-            match notice.event {
-              UserNoticeEvent::SubOrResub { .. } => {
-                //Single sub or resub
-                broadcast_event(&cc_subs, IrcCcEvent{subs: 1, bits: 0});
-              },
-              UserNoticeEvent::SubGift { is_sender_anonymous, .. } => {
-                let sender_id = if is_sender_anonymous {String::from("274598607")} else {notice.sender.id};
-                if *gift_bombs.get(&sender_id).unwrap_or(&0) > 0 {
-                  //Sub gift part of bigger sub bomb, ignore
-                  let gift_bomb_left = gift_bombs.get(&sender_id).unwrap_or(&0);
-                  let gift_bomb_left = gift_bomb_left - 1;
-                  gift_bombs.insert(sender_id, gift_bomb_left);
-                } else {
-                  //Single sub gift, not part of sub bomb
-                  broadcast_event(&cc_subs, IrcCcEvent{subs: 1, bits: 0});
-                }
-              },
-              UserNoticeEvent::SubMysteryGift { mass_gift_count, .. } => {
-                //Gift bomb, insert sender into map and pass on total amount
-                gift_bombs.insert(notice.sender.id, mass_gift_count);
-                broadcast_event(&cc_subs, IrcCcEvent{subs: mass_gift_count, bits: 0});
-              },
-              UserNoticeEvent::AnonSubMysteryGift { mass_gift_count, .. } => {
-                //Anon gift bomb, insert anon id into map and pass on total amount
-                gift_bombs.insert(String::from("274598607"), mass_gift_count);
-                broadcast_event(&cc_subs, IrcCcEvent{subs: mass_gift_count, bits: 0});
-              },
-              _ => {}
-            }
-          },
-          _ => {}
-        }
+    if msg.1.is_some() {
+      self.is_logged_in = true;
+      if sender.send_message(&to_msg(&format!("PASS {}", msg.1.unwrap()))).is_err() {
+        return MessageResult(IrcConnectResult::ConnectionFailed);
       }
+    }
+    if sender.send_message(&to_msg(&format!("NICK {}", msg.0))).is_err() {
+      return MessageResult(IrcConnectResult::ConnectionFailed);
+    }
 
+    let first_msg = receiver.recv_message();
+    if first_msg.is_err() {
+      return MessageResult(IrcConnectResult::ConnectionFailed);
+    }
+    match first_msg.unwrap() {
+      OwnedMessage::Text(text) => {
+        //Should be improved to be future-safe
+        if text.contains("authentication failed") {
+          return MessageResult(IrcConnectResult::AuthFailed);
+        }
+      },
+      _ => {
+        return MessageResult(IrcConnectResult::ConnectionFailed);
+      }
+    };
+    std::thread::spawn(move || {
+      while let Ok(msg) = receiver.recv_message() {
+
+        println!("{:?}", msg);
+      }
+      println!("[WS] Close read loop");
     });
-    self.client.as_ref().unwrap().join(String::from("yannismate"));
+
+  MessageResult(IrcConnectResult::Success)
   }
+}
+
+#[inline]
+fn to_msg(s: &String) -> websocket::Message {
+  websocket::Message::text(s)
 }
 
 

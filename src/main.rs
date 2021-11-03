@@ -10,7 +10,7 @@ pub struct AppState {
 
 #[get("/")]
 async fn hello(data: actix_web::web::Data<AppState>) -> impl Responder {
-  let res = data.irc_client.send(IrcConnect(String::from("justinfan523"), None)).await;
+  let res = data.irc_client.send(IrcConnect(String::from("justinfan123"), None)).await;
   HttpResponse::Ok().body(format!("{:?}", res))
 }
 
