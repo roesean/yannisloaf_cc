@@ -4,6 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 use websocket::Message;
 
 //Sending
+#[allow(dead_code)]
 pub enum IrcCommand {
   Nick(NICKCMD),
   Pass(PASSCMD),
@@ -47,6 +48,7 @@ pub struct PRIVMSGCMD {
   msg: String
 }
 
+#[allow(dead_code)]
 pub enum IrcCapabilities {
   Membership,
   Tags,

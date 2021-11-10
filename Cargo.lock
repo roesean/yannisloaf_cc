@@ -2263,6 +2263,7 @@ dependencies = [
  "actix",
  "actix-web",
  "expiring_map",
+ "serde",
  "tokio",
  "websocket",
 ]

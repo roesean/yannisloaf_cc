@@ -89,7 +89,7 @@ impl Handler<IrcConnect> for IrcClientActor {
 
     let sender_handle = self.sender.clone();
 
-    let mut sender = sender.as_mut().unwrap();
+    let sender = sender.as_mut().unwrap();
 
     if msg.1.is_some() {
       self.is_logged_in = true;

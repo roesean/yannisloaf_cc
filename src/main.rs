@@ -1,17 +1,12 @@
 mod twitch;
+mod web;
 
-use actix_web::{App, HttpServer, middleware, Responder, HttpResponse, get};
-use crate::twitch::chat::{IrcClientActor, IrcConnect};
+use actix_web::{App, HttpServer, middleware};
+use crate::twitch::chat::IrcClientActor;
 use actix::{Actor, Addr};
 
 pub struct AppState {
   irc_client: Addr<IrcClientActor>,
-}
-
-#[get("/")]
-async fn hello(data: actix_web::web::Data<AppState>) -> impl Responder {
-  let res = data.irc_client.send(IrcConnect(String::from("justinfan123"), None)).await;
-  HttpResponse::Ok().body(format!("{:?}", res))
 }
 
 
@@ -28,7 +23,7 @@ async fn main() -> std::io::Result<()> {
     App::new()
       .wrap(middleware::Logger::default())
       .app_data(state.clone())
-      .service(hello)
+      .service(web::irc::irc_connect)
   }).bind("127.0.0.1:8080")?.run().await
 
 
