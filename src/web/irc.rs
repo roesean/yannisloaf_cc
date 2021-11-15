@@ -8,10 +8,13 @@ use crate::twitch::chat::IrcConnect;
 pub struct IrcConnectData {
   username: String,
   #[serde(default)]
-  token: Option<String>
+  token: Option<String>,
+  channel: String
 }
 #[post("/api/irc/connect")]
 pub async fn irc_connect(irc_connect_data: Json<IrcConnectData>, data: actix_web::web::Data<AppState>) -> impl Responder {
-  let res = data.irc_client.send(IrcConnect(irc_connect_data.username.clone(), irc_connect_data.token.clone())).await;
+  let res = data.irc_client.send(
+    IrcConnect(irc_connect_data.username.clone(), irc_connect_data.token.clone(), irc_connect_data.channel.clone())
+  ).await;
   HttpResponse::Ok().body(format!("{:?}", res))
 }

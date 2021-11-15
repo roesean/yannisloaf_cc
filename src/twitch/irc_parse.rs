@@ -44,8 +44,8 @@ pub type PARTCMD = String;
 pub type CAPREQCMD = IrcCapabilities;
 
 pub struct PRIVMSGCMD {
-  channel: String,
-  msg: String
+  pub channel: String,
+  pub msg: String
 }
 
 #[allow(dead_code)]
@@ -76,7 +76,6 @@ pub enum IrcMessage {
 
 impl IrcMessage {
   pub fn parse(str: String) -> Result<IrcMessage, Box<dyn Error>> {
-    println!("Parsing {:?}", &str);
     if str.is_empty() {}
     let mut tags: HashMap<String, String> = HashMap::new();
     let mut str = str.chars().into_iter().peekable();
@@ -100,7 +99,7 @@ impl IrcMessage {
     let msg_type : String = str.by_ref().take_while(|a| {a.ne(&' ')}).collect();
 
     let channel : String = str.by_ref().skip(1).take_while(|a| {a.ne(&' ')}).collect();
-    let channel = if channel.len() > 0 {Some(channel)} else {None};
+    let channel = if !channel.is_empty() {Some(channel)} else {None};
 
     let msg : String = str.skip_while(|a| {a.ne(&':')}).skip(1).collect();
 
