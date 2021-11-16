@@ -1,12 +1,15 @@
 mod twitch;
 mod web;
+mod inputs;
 
 use actix_web::{App, HttpServer, middleware};
 use crate::twitch::chat::IrcClientActor;
 use actix::{Actor, Addr};
+use crate::inputs::InputActor;
 
 pub struct AppState {
   irc_client: Addr<IrcClientActor>,
+  input_actor: Addr<InputActor>
 }
 
 
@@ -14,7 +17,8 @@ pub struct AppState {
 async fn main() -> std::io::Result<()> {
 
   let state = AppState {
-    irc_client: IrcClientActor::default().start()
+    irc_client: IrcClientActor::default().start(),
+    input_actor: InputActor::default().start()
   };
 
   let state = actix_web::web::Data::new(state);

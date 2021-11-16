@@ -12,3 +12,4 @@ actix-web = "4.0.0-beta.10"
 serde = { version = "1.0.130", features = ["derive"] }
 websocket = "0.26.2"
 expiring_map = "0.1.0"
+winput = "0.2.5"
